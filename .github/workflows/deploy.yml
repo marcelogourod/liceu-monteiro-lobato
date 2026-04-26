@@ -1,4 +1,4 @@
-﻿name: Deploy Static Site
+name: Deploy Static Site
 
 on:
   push:
@@ -67,7 +67,7 @@ jobs:
       url: https://hml-${{ secrets.PROJECT_SLUG }}.vercel.app
     steps:
       - uses: actions/checkout@v4
-      - uses: amondnet/vercel-action@16e87c0a08142b0d0d33b76aeaf20823c381b9b9
+      - uses: amondnet/vercel-action@4b810e26f7bb2a331c698af186f890cbf20d5f72
         with:
           vercel-token: ${{ secrets.VERCEL_TOKEN }}
           vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
@@ -88,7 +88,7 @@ jobs:
       #   Required reviewers (minimo 1 aprovador)
     steps:
       - uses: actions/checkout@v4
-      - uses: amondnet/vercel-action@16e87c0a08142b0d0d33b76aeaf20823c381b9b9
+      - uses: amondnet/vercel-action@4b810e26f7bb2a331c698af186f890cbf20d5f72
         with:
           vercel-token: ${{ secrets.VERCEL_TOKEN }}
           vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
