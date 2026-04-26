@@ -1,0 +1,108 @@
+﻿name: Deploy Static Site
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+  pull_request:
+    branches:
+      - main
+      - develop
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Deploy target'
+        required: true
+        type: choice
+        options: [staging, production]
+
+# Evita race conditions: cancela runs anteriores (exceto main)
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+env:
+  VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+  VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
+jobs:
+  validate:
+    name: Validate
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check HTML/JS files exist
+        run: |
+          if [ ! -f "index.html" ]; then
+            echo "index.html not found at root"
+            exit 1
+          fi
+          echo "index.html found"
+      - name: Post CI status on PR
+        if: github.event_name == 'pull_request' && always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const status = '${{ job.status }}' === 'success' ? 'OK' : 'FAIL';
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `Validate: ${status} (${{ job.status }})`
+            });
+
+  deploy-staging:
+    name: Deploy Staging (HML)
+    runs-on: ubuntu-22.04
+    needs: validate
+    permissions:
+      contents: read
+    if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
+    environment:
+      name: staging
+      url: https://hml-${{ secrets.PROJECT_SLUG }}.vercel.app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: amondnet/vercel-action@16e87c0a08142b0d0d33b76aeaf20823c381b9b9
+        with:
+          vercel-token: ${{ secrets.VERCEL_TOKEN }}
+          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
+          scope: ${{ secrets.VERCEL_ORG_ID }}
+
+  deploy-production:
+    name: Deploy Production (PRD)
+    runs-on: ubuntu-22.04
+    needs: validate
+    permissions:
+      contents: read
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    environment:
+      name: production
+      url: https://${{ secrets.PROJECT_SLUG }}.vercel.app
+      # IMPORTANTE: Configurar no GitHub -> Settings -> Environments -> production:
+      #   Required reviewers (minimo 1 aprovador)
+    steps:
+      - uses: actions/checkout@v4
+      - uses: amondnet/vercel-action@16e87c0a08142b0d0d33b76aeaf20823c381b9b9
+        with:
+          vercel-token: ${{ secrets.VERCEL_TOKEN }}
+          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
+          vercel-args: '--prod'
+          scope: ${{ secrets.VERCEL_ORG_ID }}
+
+# ───────────────────────────────────────────────────────────────
+# GitHub Secrets necessarios:
+#   VERCEL_TOKEN, VERCEL_ORG_ID, VERCEL_PROJECT_ID
+#   PROJECT_SLUG (ex: meu-projeto)
+# GitHub Environments necessarios:
+#   staging    -> sem aprovacao obrigatoria
+#   production -> Required reviewers (1+)
+# ───────────────────────────────────────────────────────────────
+# Dependabot recomendado (.github/dependabot.yml):
+#   package-ecosystem: github-actions | schedule: weekly
