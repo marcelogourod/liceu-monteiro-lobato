@@ -1,4 +1,4 @@
-﻿name: Deploy Static Site
+name: Deploy Static Site
 
 on:
   push:
@@ -44,7 +44,7 @@ jobs:
           echo "index.html found"
       - name: Post CI status on PR
         if: github.event_name == 'pull_request' && always()
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
           script: |
             const status = '${{ job.status }}' === 'success' ? 'OK' : 'FAIL';
